@@ -238,6 +238,20 @@ pub static JETBRAINS_MONO: &[u8] = include_bytes!("../../../assets/fonts/JetBrai
 /// a craft-fonts checkout. Kept as the last-resort CJK face: a script-specific craft-fonts face,
 /// when present, sorts ahead of it (see [`sans_first`] / [`fallback_rank`]).
 pub static NOTO_SANS_SC: &[u8] = include_bytes!("../../../assets/fonts/NotoSansSC-Regular.ttf");
+/// The language-picker names Figtree can't draw (Georgian, Korean, Thai), bundled as OFL-1.1
+/// fallbacks so every UI language shows in its own script without a craft-fonts build.
+pub static NOTO_SANS_GEORGIAN: &[u8] = include_bytes!("../../../assets/fonts/NotoSansGeorgian-Regular.ttf");
+pub static NOTO_SANS_KR: &[u8] = include_bytes!("../../../assets/fonts/NotoSansKR-Regular.ttf");
+pub static NOTO_SANS_THAI: &[u8] = include_bytes!("../../../assets/fonts/NotoSansThai-Regular.ttf");
+
+/// Bundled fallback faces: registered name and the font bytes. Figtree covers Latin, Greek and
+/// Cyrillic; Noto Sans SC covers Han and kana; these cover the remaining scripts in [`super::i18n::LANGUAGES`].
+const BUNDLED_FALLBACKS: &[(&str, &[u8])] = &[
+    ("NotoSansSC", NOTO_SANS_SC),
+    ("NotoSansGeorgian", NOTO_SANS_GEORGIAN),
+    ("NotoSansKR", NOTO_SANS_KR),
+    ("NotoSansThai", NOTO_SANS_THAI),
+];
 
 /// A font from the optional craft-fonts build input (empty unless built with `CRAFT_FONTS_DIR`).
 pub struct CraftFont {
@@ -259,8 +273,10 @@ pub fn install_fonts(ctx: &egui::Context) {
         fonts.font_data.insert(name.to_owned(), Arc::new(FontData::from_static(FIGTREE).tweak(tweak)));
     }
     fonts.font_data.insert("JetBrainsMono".to_owned(), Arc::new(FontData::from_static(JETBRAINS_MONO)));
-    fonts.font_data.insert("NotoSansSC".to_owned(), Arc::new(FontData::from_static(NOTO_SANS_SC)));
-    let mut fallbacks = vec!["NotoSansSC".to_owned()];
+    let mut fallbacks: Vec<String> = BUNDLED_FALLBACKS.iter().map(|(name, bytes)| {
+        fonts.font_data.insert((*name).to_owned(), Arc::new(FontData::from_static(bytes)));
+        (*name).to_owned()
+    }).collect();
     let mut bold_fallbacks = Vec::new();
     for f in CRAFT_FONTS {
         let name = format!("craft:{}:{}", f.family, f.style);
@@ -884,6 +900,20 @@ mod tests {
         assert_eq!(fallback_rank("craft:Unknown Face:Regular"), FallbackRank::Other);
         assert_eq!(fallback_rank("craft:BIZ UDMincho:Regular"), FallbackRank::Serif);
         assert_eq!(fallback_rank("craft:BIZ UDPGothic:Regular"), FallbackRank::Local);
+    }
+
+    /// A local build (no craft-fonts) must still show every UI language in its own script. The
+    /// bundled fallbacks cover the names the language picker draws; a missing one is a box in the
+    /// list, which is exactly what was reported for Georgian.
+    #[test]
+    fn bundled_fallbacks_show_every_language_name() {
+        let ctx = egui::Context::default();
+        install_fonts(&ctx);
+        ctx.run_ui(egui::RawInput::default(), |_| {}).textures_delta.clear();
+        for name in crate::i18n::LANGUAGES {
+            let font = FontId::proportional(14.0);
+            assert!(ctx.fonts_mut(|f| f.has_glyphs(&font, name.name)), "{} shows as boxes", name.name);
+        }
     }
 
     /// Releases are built with craft-fonts (#19), and so is CI; a build without them has only
