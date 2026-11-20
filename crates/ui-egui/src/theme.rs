@@ -234,6 +234,10 @@ pub static FIGTREE: &[u8] = include_bytes!("../../../assets/fonts/Figtree-Variab
 /// The faces cut from it: text, labels, and headings and emphasis.
 const FIGTREE_FACES: [(&str, f32); 3] = [("Figtree", 400.0), ("Figtree-Medium", 500.0), ("Figtree-SemiBold", 600.0)];
 pub static JETBRAINS_MONO: &[u8] = include_bytes!("../../../assets/fonts/JetBrainsMono-Regular.ttf");
+/// Noto Sans SC (SIL OFL 1.1), bundled so Chinese text renders even when the app is built without
+/// a craft-fonts checkout. Kept as the last-resort CJK face: a script-specific craft-fonts face,
+/// when present, sorts ahead of it (see [`sans_first`] / [`fallback_rank`]).
+pub static NOTO_SANS_SC: &[u8] = include_bytes!("../../../assets/fonts/NotoSansSC-Regular.ttf");
 
 /// A font from the optional craft-fonts build input (empty unless built with `CRAFT_FONTS_DIR`).
 pub struct CraftFont {
@@ -255,7 +259,8 @@ pub fn install_fonts(ctx: &egui::Context) {
         fonts.font_data.insert(name.to_owned(), Arc::new(FontData::from_static(FIGTREE).tweak(tweak)));
     }
     fonts.font_data.insert("JetBrainsMono".to_owned(), Arc::new(FontData::from_static(JETBRAINS_MONO)));
-    let mut fallbacks = Vec::new();
+    fonts.font_data.insert("NotoSansSC".to_owned(), Arc::new(FontData::from_static(NOTO_SANS_SC)));
+    let mut fallbacks = vec!["NotoSansSC".to_owned()];
     let mut bold_fallbacks = Vec::new();
     for f in CRAFT_FONTS {
         let name = format!("craft:{}:{}", f.family, f.style);
